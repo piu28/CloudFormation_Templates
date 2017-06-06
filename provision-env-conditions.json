@@ -1,0 +1,2073 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Environment Setup: VPC, Subnets, SecurityGroups, EC2, AutoscalingGroup, ELB, RDS, Elasticache ",
+  "Parameters": {
+    "01EnvironmentName": {
+      "Type": "String",
+      "Description": "Enter the environment name you want to create",
+      "AllowedValues": [
+        "TEST",
+        "STAGE",
+        "PROD"
+      ]
+    },
+    "02AvailabilityZoneA": {
+      "Description": "Select AVZoneA",
+      "Type": "AWS::EC2::AvailabilityZone::Name"
+    },
+    "03AvailabilityZoneB": {
+      "Description": "Select AVZoneB",
+      "Type": "AWS::EC2::AvailabilityZone::Name"
+    },
+    "04VpcRange": {
+      "Description": "Networking Range",
+      "Type": "String",
+      "Default": "10.10"
+    },
+    "05AppGroup": {
+      "Description": "AppGroup",
+      "Type": "String",
+      "Default": "app"
+    },
+    "06TenantGroup": {
+      "Description": "TenantGroup",
+      "Type": "String",
+      "Default": "xyz"
+    },
+    "07CronServer": {
+      "Type": "String",
+      "AllowedValues": [
+        "yes",
+        "no"
+      ],
+      "Description": "Select yes/no whether to launch a cron server."
+    },
+    "08CronAMI": {
+      "Type": "String",
+      "Description": "Enter the Image Id if you wish to launch a Cron Server",
+      "Default": "ami-c58c1dd3"
+    },
+    "09CronInstanceType": {
+      "Description": "Instance Type of Cron Server.",
+      "Type": "String",
+      "AllowedValues": [
+        "c4.2xlarge",
+        "c4.xlarge",
+        "c4.large",
+        "t2.micro",
+        "t2.small",
+        "t2.medium",
+        "t2.large",
+        "t2.nano",
+        "m4.large",
+        "m4.xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.10xlarge",
+        "r4.large",
+        "r4.xlarge"
+      ],
+      "Default": "t2.micro"
+    },
+    "10ElasticsearchServer": {
+      "Type": "String",
+      "AllowedValues": [
+        "yes",
+        "no"
+      ],
+      "Description": "Select yes/no whether to launch a elasticsearch server."
+    },
+    "11ElasticsearchAMI": {
+      "Type": "String",
+      "Description": "Enter the Image Id",
+      "Default": "ami-c58c1dd3"
+    },
+    "12ElasticsearchInstanceType": {
+      "Description": "Instance Type of Elasticsearch Server",
+      "Type": "String",
+      "AllowedValues": [
+        "c4.2xlarge",
+        "c4.xlarge",
+        "c4.large",
+        "t2.micro",
+        "t2.small",
+        "t2.medium",
+        "t2.large",
+        "t2.nano",
+        "m4.large",
+        "m4.xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.10xlarge",
+        "r4.large",
+        "r4.xlarge"
+      ],
+      "Default": "t2.micro"
+    },
+    "13ElastiCache": {
+      "Type": "String",
+      "AllowedValues": [
+        "yes",
+        "no"
+      ],
+      "Description": "Select yes/no whether to launch a Elasticache Redis Cluster."
+    },
+    "14CacheNodeType": {
+      "Description": "Elasticache Cluster Node Type",
+      "Type": "String",
+      "AllowedValues": [
+        "cache.t2.micro",
+        "cache.t2.small",
+        "cache.t2.medium",
+        "cache.m3.medium",
+        "cache.m3.large",
+        "cache.m4.large",
+        "cache.m4.xlarge"
+      ],
+      "Default": "cache.t2.micro"
+    },
+    "15WebAMI": {
+      "Type": "String",
+      "Description": "Enter the Image Id",
+      "Default": "ami-c58c1dd3"
+    },
+    "16WebInstanceType": {
+      "Description": "Web Server Instance Type",
+      "Type": "String",
+      "AllowedValues": [
+        "c4.2xlarge",
+        "c4.xlarge",
+        "c4.large",
+        "t2.micro",
+        "t2.small",
+        "t2.medium",
+        "t2.large",
+        "t2.nano",
+        "m4.large",
+        "m4.xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.10xlarge",
+        "r4.large",
+        "r4.xlarge"
+      ],
+      "Default": "t2.micro"
+    },
+    "17MongoAMI": {
+      "Type": "String",
+      "Description": "Enter the Image Id",
+      "Default": "ami-c58c1dd3"
+    },
+    "18MongoInstanceType": {
+      "Description": "MongoDB Server Instance Type",
+      "Type": "String",
+      "AllowedValues": [
+        "c4.2xlarge",
+        "c4.xlarge",
+        "c4.large",
+        "t2.micro",
+        "t2.small",
+        "t2.medium",
+        "t2.large",
+        "t2.nano",
+        "m4.large",
+        "m4.xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.10xlarge",
+        "r4.large",
+        "r4.xlarge"
+      ],
+      "Default": "t2.micro"
+    },
+    "19KeyName": {
+      "Description": "Amazon EC2 Key Pair",
+      "Type": "AWS::EC2::KeyPair::KeyName"
+    },
+    "20DBName": {
+      "Default": "MyDatabase",
+      "Description": "The database name",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*",
+      "ConstraintDescription": "must begin with a letter and contain only alphanumeric characters."
+    },
+    "21DBUsername": {
+      "Default": "admin",
+      "Description": "The database admin account username",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "16",
+      "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*",
+      "ConstraintDescription": "must begin with a letter and contain only alphanumeric characters."
+    },
+    "22DBPassword": {
+      "Default": "password",
+      "NoEcho": "true",
+      "Description": "The database admin account password",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "41"
+    },
+    "23DBClass": {
+      "Description": "Database instance class",
+      "Type": "String",
+      "AllowedValues": [
+        "db.m4.10xlarge",
+        "db.m4.4xlarge",
+        "db.m4.2xlarge",
+        "db.m4.xlarge",
+        "db.m4.large",
+        "db.m3.2xlarge",
+        "db.m3.large",
+        "db.m3.medium",
+        "db.r3.8xlarge",
+        "db.r3.4xlarge",
+        "db.r3.2xlarge",
+        "db.r3.xlarge",
+        "db.r3.large",
+        "db.t2.large",
+        "db.t2.medium",
+        "db.t2.small",
+        "db.t2.micro"
+      ],
+      "ConstraintDescription": "must select a valid database instance type.",
+      "Default": "db.t2.micro"
+    },
+    "24DBAllocatedStorage": {
+      "Default": "5",
+      "Description": "The size of the database (Gb)",
+      "Type": "Number",
+      "MinValue": "5",
+      "MaxValue": "1024",
+      "ConstraintDescription": "must be between 5 and 1024Gb."
+    }
+  },
+  "Conditions": {
+    "CreateCronServer": {
+      "Fn::Equals": [
+        {
+          "Ref": "07CronServer"
+        },
+        "yes"
+      ]
+    },
+    "CreateElasticsearchServer": {
+      "Fn::Equals": [
+        {
+          "Ref": "10ElasticsearchServer"
+        },
+        "yes"
+      ]
+    },
+    "CreateElasticacheRedis": {
+      "Fn::Equals": [
+        {
+          "Ref": "13ElastiCache"
+        },
+        "yes"
+      ]
+    }
+  },
+  "Resources": {
+    "VPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::Join": [
+            ".",
+            [
+              {
+                "Ref": "04VpcRange"
+              },
+              "0.0/16"
+            ]
+          ]
+        },
+        "EnableDnsSupport": "true",
+        "EnableDnsHostnames": "true",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "VPC01"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "InternetGatewayAttachement": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "InternetGatewayId": {
+          "Ref": "InternetGateway"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "EIP": {
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "Domain": "vpc"
+      }
+    },
+    "NAT": {
+      "Type": "AWS::EC2::NatGateway",
+      "DependsOn": "InternetGatewayAttachement",
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": [
+            "EIP",
+            "AllocationId"
+          ]
+        },
+        "SubnetId": {
+          "Ref": "MgmtSubnetA"
+        }
+      }
+    },
+    "DBSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::Join": [
+            ".",
+            [
+              {
+                "Ref": "04VpcRange"
+              },
+              "6.0/24"
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "02AvailabilityZoneA"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "DB-PRIV-1A"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "DBSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::Join": [
+            ".",
+            [
+              {
+                "Ref": "04VpcRange"
+              },
+              "7.0/24"
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "03AvailabilityZoneB"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "DB-PRIV-1B"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "WebSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::Join": [
+            ".",
+            [
+              {
+                "Ref": "04VpcRange"
+              },
+              "2.0/24"
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "02AvailabilityZoneA"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "WEB-PRIV-1A"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "WebSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::Join": [
+            ".",
+            [
+              {
+                "Ref": "04VpcRange"
+              },
+              "3.0/24"
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "03AvailabilityZoneB"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "WEB-PRIV-1B"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "CacheSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::Join": [
+            ".",
+            [
+              {
+                "Ref": "04VpcRange"
+              },
+              "4.0/24"
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "02AvailabilityZoneA"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "CACHE-PRIV-1A"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "CacheSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::Join": [
+            ".",
+            [
+              {
+                "Ref": "04VpcRange"
+              },
+              "5.0/24"
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "03AvailabilityZoneB"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "CACHE-PRIV-1A"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "ElbSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "MapPublicIpOnLaunch": true,
+        "CidrBlock": {
+          "Fn::Join": [
+            ".",
+            [
+              {
+                "Ref": "04VpcRange"
+              },
+              "0.0/24"
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "02AvailabilityZoneA"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "ELB-PUB-1A"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "ElbSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "MapPublicIpOnLaunch": true,
+        "CidrBlock": {
+          "Fn::Join": [
+            ".",
+            [
+              {
+                "Ref": "04VpcRange"
+              },
+              "1.0/24"
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "03AvailabilityZoneB"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "ELB-PUB-1B"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "MgmtSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "MapPublicIpOnLaunch": true,
+        "CidrBlock": {
+          "Fn::Join": [
+            ".",
+            [
+              {
+                "Ref": "04VpcRange"
+              },
+              "8.0/24"
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "02AvailabilityZoneA"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "MGMT-PUB-1A"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "MgmtSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "MapPublicIpOnLaunch": true,
+        "CidrBlock": {
+          "Fn::Join": [
+            ".",
+            [
+              {
+                "Ref": "04VpcRange"
+              },
+              "9.0/24"
+            ]
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "03AvailabilityZoneB"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "MGMT-PRIV-1B"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "PublicSubnetsRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "PrivateSubnetsRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "InternetRoute": {
+      "Type": "AWS::EC2::Route",
+      "DependsOn": "InternetGateway",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicSubnetsRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+    "PrivateRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "NAT"
+        }
+      }
+    },
+    "AssociateRouteTableWithDBPrivateSubnetA": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "DBSubnetA"
+        }
+      }
+    },
+    "AssociateRouteTableWithDBPrivateSubnetB": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "DBSubnetB"
+        }
+      }
+    },
+    "AssociateRouteTableWithAppPrivateSubnetA": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "WebSubnetA"
+        }
+      }
+    },
+    "AssociateRouteTableWithAppPrivateSubnetB": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "WebSubnetB"
+        }
+      }
+    },
+    "AssociateRouteTableWithCachePrivateSubnetA": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "CacheSubnetA"
+        }
+      }
+    },
+    "AssociateRouteTableWithCachePrivateSubnetB": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "CacheSubnetB"
+        }
+      }
+    },
+    "AssociateRouteTableWithElbPublicSubnetA": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "ElbSubnetA"
+        }
+      }
+    },
+    "AssociateRouteTableWithElbPublicSubnetB": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "ElbSubnetB"
+        }
+      }
+    },
+    "AssociateRouteTableWithMgmtPublicSubnetA": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "MgmtSubnetA"
+        }
+      }
+    },
+    "AssociateRouteTableWithMgmtPublicSubnetB": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "MgmtSubnetB"
+        }
+      }
+    },
+    "DBSG01": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "DependsOn": "WEBSG01",
+      "Properties": {
+        "GroupDescription": "DB Security Group",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "DB-SG01"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "3306",
+            "ToPort": "3306",
+            "SourceSecurityGroupId": {
+              "Ref": "WEBSG01"
+            }
+          }
+        ]
+      }
+    },
+    "WEBSG01": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Web Security Group",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "WEB-SG01"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "CRONSG01": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Cron Security Group",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "CRON-SG01"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "CACHESG01": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "DependsOn": "WEBSG01",
+      "Properties": {
+        "GroupDescription": "Cache Security Group",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "CACHE-SG01"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "6379",
+            "ToPort": "6379",
+            "SourceSecurityGroupId": {
+              "Ref": "WEBSG01"
+            }
+          }
+        ]
+      }
+    },
+    "ELBSG01": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "ELB Security Group",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "ELB-SG01"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "80",
+            "ToPort": "80",
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "443",
+            "ToPort": "443",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "MGMTSG01": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Mgmt Security Group",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "MGMT-SG01"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "CacheSubnetGroup": {
+      "Type": "AWS::ElastiCache::SubnetGroup",
+      "DependsOn": [
+        "CacheSubnetA",
+        "CacheSubnetB"
+      ],
+      "Properties": {
+        "CacheSubnetGroupName": {
+          "Fn::Join": [
+            "-",
+            [
+              {
+                "Ref": "06TenantGroup"
+              },
+              {
+                "Ref": "01EnvironmentName"
+              },
+              "SUBNETGROUP01"
+            ]
+          ]
+        },
+        "Description": "Cache Subnet Group",
+        "SubnetIds": [
+          {
+            "Ref": "CacheSubnetA"
+          },
+          {
+            "Ref": "CacheSubnetB"
+          }
+        ]
+      }
+    },
+    "ElasticacheCluster": {
+      "Type": "AWS::ElastiCache::CacheCluster",
+      "Condition": "CreateElasticacheRedis",
+      "DependsOn": [
+        "CACHESG01",
+        "CacheSubnetGroup"
+      ],
+      "Properties": {
+        "ClusterName": {
+          "Fn::Join": [
+            "-",
+            [
+              {
+                "Ref": "01EnvironmentName"
+              },
+              "cache01"
+            ]
+          ]
+        },
+        "AutoMinorVersionUpgrade": "true",
+        "Engine": "redis",
+        "CacheNodeType": {
+          "Ref": "14CacheNodeType"
+        },
+        "NumCacheNodes": "1",
+        "CacheSubnetGroupName": {
+          "Ref": "CacheSubnetGroup"
+        },
+        "VpcSecurityGroupIds": [
+          {
+            "Fn::GetAtt": [
+              "CACHESG01",
+              "GroupId"
+            ]
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "DBSubnetGroup": {
+      "Type": "AWS::RDS::DBSubnetGroup",
+      "DependsOn": [
+        "DBSubnetA",
+        "DBSubnetB"
+      ],
+      "Properties": {
+        "DBSubnetGroupDescription": "Subnets available for the RDS DB Instance",
+        "SubnetIds": [
+          {
+            "Ref": "DBSubnetA"
+          },
+          {
+            "Ref": "DBSubnetB"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "DBSUBNETGROUP01"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "DBInstance": {
+      "Type": "AWS::RDS::DBInstance",
+      "DependsOn": [
+        "DBSG01",
+        "DBSubnetGroup"
+      ],
+      "Properties": {
+        "DBName": {
+          "Ref": "20DBName"
+        },
+        "AllocatedStorage": {
+          "Ref": "24DBAllocatedStorage"
+        },
+        "DBInstanceClass": {
+          "Ref": "23DBClass"
+        },
+        "Engine": "MySQL",
+        "EngineVersion": "5.6",
+        "DBInstanceIdentifier": {
+          "Fn::Join": [
+            "-",
+            [
+              {
+                "Ref": "06TenantGroup"
+              },
+              {
+                "Ref": "01EnvironmentName"
+              },
+              "DB01"
+            ]
+          ]
+        },
+        "MasterUsername": {
+          "Ref": "21DBUsername"
+        },
+        "MasterUserPassword": {
+          "Ref": "22DBPassword"
+        },
+        "DBSubnetGroupName": {
+          "Ref": "DBSubnetGroup"
+        },
+        "VPCSecurityGroups": [
+          {
+            "Ref": "DBSG01"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "ElasticLoadBalancer": {
+      "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+      "DependsOn": [
+        "ElbSubnetA",
+        "ElbSubnetB",
+        "ELBSG01"
+      ],
+      "Properties": {
+        "LoadBalancerName": {
+          "Fn::Join": [
+            "-",
+            [
+              {
+                "Ref": "06TenantGroup"
+              },
+              {
+                "Ref": "01EnvironmentName"
+              },
+              "ELB01"
+            ]
+          ]
+        },
+        "Listeners": [
+          {
+            "LoadBalancerPort": "80",
+            "InstancePort": "80",
+            "Protocol": "HTTP"
+          }
+        ],
+        "HealthCheck": {
+          "Target": "HTTP:80/",
+          "HealthyThreshold": "3",
+          "UnhealthyThreshold": "5",
+          "Interval": "10",
+          "Timeout": "3"
+        },
+        "SecurityGroups": [
+          {
+            "Fn::GetAtt": [
+              "ELBSG01",
+              "GroupId"
+            ]
+          }
+        ],
+        "Subnets": [
+          {
+            "Ref": "ElbSubnetA"
+          },
+          {
+            "Ref": "ElbSubnetB"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "WEBLC01": {
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
+      "DependsOn": [
+        "WEBSG01"
+      ],
+      "Properties": {
+        "KeyName": {
+          "Ref": "19KeyName"
+        },
+        "ImageId": {
+          "Ref": "15WebAMI"
+        },
+        "SecurityGroups": [
+          {
+            "Ref": "WEBSG01"
+          }
+        ],
+        "InstanceType": {
+          "Ref": "16WebInstanceType"
+        }
+      }
+    },
+    "WEBASG01": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "DependsOn": [
+        "WEBLC01",
+        "ElasticLoadBalancer"
+      ],
+      "Properties": {
+        "VPCZoneIdentifier": [
+          {
+            "Ref": "WebSubnetA"
+          },
+          {
+            "Ref": "WebSubnetB"
+          }
+        ],
+        "LaunchConfigurationName": {
+          "Ref": "WEBLC01"
+        },
+        "MinSize": "1",
+        "MaxSize": "4",
+        "LoadBalancerNames": [
+          {
+            "Ref": "ElasticLoadBalancer"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "WEB01"
+                ]
+              ]
+            },
+            "PropagateAtLaunch": "true"
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            },
+            "PropagateAtLaunch": "true"
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            },
+            "PropagateAtLaunch": "true"
+          }
+        ]
+      }
+    },
+    "CronServer": {
+      "Type": "AWS::EC2::Instance",
+      "Condition": "CreateCronServer",
+      "Properties": {
+        "InstanceType": {
+          "Ref": "09CronInstanceType"
+        },
+        "SubnetId": {
+          "Ref": "WebSubnetA"
+        },
+        "SecurityGroupIds": [
+          {
+            "Fn::GetAtt": [
+              "CRONSG01",
+              "GroupId"
+            ]
+          }
+        ],
+        "ImageId": {
+          "Ref": "08CronAMI"
+        },
+        "KeyName": {
+          "Ref": "19KeyName"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "CRON01"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "MongoServer01": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "InstanceType": {
+          "Ref": "18MongoInstanceType"
+        },
+        "SubnetId": {
+          "Ref": "DBSubnetA"
+        },
+        "SecurityGroupIds": [
+          {
+            "Fn::GetAtt": [
+              "DBSG01",
+              "GroupId"
+            ]
+          }
+        ],
+        "ImageId": {
+          "Ref": "17MongoAMI"
+        },
+        "KeyName": {
+          "Ref": "19KeyName"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "MONGO01"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "MongoServer02": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "InstanceType": {
+          "Ref": "18MongoInstanceType"
+        },
+        "SubnetId": {
+          "Ref": "DBSubnetA"
+        },
+        "SecurityGroupIds": [
+          {
+            "Fn::GetAtt": [
+              "DBSG01",
+              "GroupId"
+            ]
+          }
+        ],
+        "ImageId": {
+          "Ref": "17MongoAMI"
+        },
+        "KeyName": {
+          "Ref": "19KeyName"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "MONGO-REPLICA"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "ElasticsearchServer": {
+      "Type": "AWS::EC2::Instance",
+      "Condition": "CreateElasticsearchServer",
+      "Properties": {
+        "InstanceType": {
+          "Ref": "12ElasticsearchInstanceType"
+        },
+        "SubnetId": {
+          "Ref": "CacheSubnetA"
+        },
+        "SecurityGroupIds": [
+          {
+            "Fn::GetAtt": [
+              "CACHESG01",
+              "GroupId"
+            ]
+          }
+        ],
+        "ImageId": {
+          "Ref": "11ElasticsearchAMI"
+        },
+        "KeyName": {
+          "Ref": "19KeyName"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  {
+                    "Ref": "06TenantGroup"
+                  },
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "ELASTICSEARCH01"
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "AppGroup",
+            "Value": {
+              "Ref": "05AppGroup"
+            }
+          },
+          {
+            "Key": "TenantGroup",
+            "Value": {
+              "Ref": "06TenantGroup"
+            }
+          }
+        ]
+      }
+    },
+    "SQSQueue": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": {
+          "Fn::Join": [
+            "-",
+            [
+              {
+                "Ref": "06TenantGroup"
+              },
+              {
+                "Ref": "01EnvironmentName"
+              },
+              "QUEUE01"
+            ]
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "VpcId": {
+      "Value": {
+        "Ref": "VPC"
+      },
+      "Description": "The id of the created vpc"
+    },
+    "DBSubnetAId": {
+      "Value": {
+        "Ref": "DBSubnetA"
+      },
+      "Description": "The id of the created db subnet A"
+    },
+    "DBSubnetBId": {
+      "Value": {
+        "Ref": "DBSubnetB"
+      },
+      "Description": "The id of the created db subnet B"
+    },
+    "AppSubnetAId": {
+      "Value": {
+        "Ref": "WebSubnetA"
+      },
+      "Description": "The id of the created app subnet A"
+    },
+    "AppSubnetBId": {
+      "Value": {
+        "Ref": "WebSubnetB"
+      },
+      "Description": "The id of the created app subnet B"
+    },
+    "CacheSubnetAId": {
+      "Value": {
+        "Ref": "CacheSubnetA"
+      },
+      "Description": "The id of the created cache subnet A"
+    },
+    "CacheSubnetBId": {
+      "Value": {
+        "Ref": "CacheSubnetB"
+      },
+      "Description": "The id of the created cache subnet B"
+    },
+    "ElbSubnetAId": {
+      "Value": {
+        "Ref": "ElbSubnetA"
+      },
+      "Description": "The id of the created elb subnet A"
+    },
+    "ElbSubnetBId": {
+      "Value": {
+        "Ref": "ElbSubnetB"
+      },
+      "Description": "The id of the created elb subnet B"
+    },
+    "MgmtSubnetAId": {
+      "Value": {
+        "Ref": "MgmtSubnetA"
+      },
+      "Description": "The id of the created mgmt subnet A"
+    },
+    "MgmtSubnetBId": {
+      "Value": {
+        "Ref": "MgmtSubnetB"
+      },
+      "Description": "The id of the created mgmt subnet B"
+    },
+    "DBSecurityGroupId": {
+      "Value": {
+        "Ref": "DBSG01"
+      },
+      "Description": "The id of the created db security group"
+    },
+    "AppSecurityGroupId": {
+      "Value": {
+        "Ref": "WEBSG01"
+      },
+      "Description": "The id of the created app security group"
+    },
+    "CacheSecurityGroupId": {
+      "Value": {
+        "Ref": "CACHESG01"
+      },
+      "Description": "The id of the created cache security group"
+    },
+    "ElbSecurityGroupId": {
+      "Value": {
+        "Ref": "ELBSG01"
+      },
+      "Description": "The id of the created elb security group"
+    },
+    "MgmtSecurityGroupId": {
+      "Value": {
+        "Ref": "MGMTSG01"
+      },
+      "Description": "The id of the created mgmt security group"
+    },
+    "DBEndpoint": {
+      "Value": {
+        "Fn::GetAtt": [
+          "DBInstance",
+          "Endpoint.Address"
+        ]
+      },
+      "Description": "RDS Endpoint"
+    },
+    "CacheEndpoint": {
+      "Condition": "CreateElasticacheRedis",
+      "Value": {
+        "Fn::GetAtt": [
+          "ElasticacheCluster",
+          "RedisEndpoint.Address"
+        ]
+      },
+      "Description": "Admin ElastiCache Endpoint"
+    },
+    "ELBEndpoint": {
+      "Value": {
+        "Fn::GetAtt": [
+          "ElasticLoadBalancer",
+          "DNSName"
+        ]
+      },
+      "Description": "ELB Endpoint"
+    },
+    "ElasticsearchServerIP": {
+      "Description": "Elasticsearch Server IP",
+      "Condition": "CreateElasticsearchServer",
+      "Value": {
+        "Fn::GetAtt": [
+          "ElasticsearchServer",
+          "PrivateIp"
+        ]
+      }
+    },
+    "CronServerIP": {
+      "Description": "Cron Server IP",
+      "Condition": "CreateCronServer",
+      "Value": {
+        "Fn::GetAtt": [
+          "CronServer",
+          "PrivateIp"
+        ]
+      }
+    },
+    "MongoServerIP01": {
+      "Description": "Cron Server IP",
+      "Value": {
+        "Fn::GetAtt": [
+          "MongoServer01",
+          "PrivateIp"
+        ]
+      }
+    },
+    "MongoServerIP02": {
+      "Description": "Cron Server IP",
+      "Value": {
+        "Fn::GetAtt": [
+          "MongoServer02",
+          "PrivateIp"
+        ]
+      }
+    }
+  }
+}
