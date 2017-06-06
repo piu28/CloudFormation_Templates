@@ -1,0 +1,1750 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Provision Dev/Stage/Prod Environment: VPC,Subnets, SecurityGroups, RDS, Elasticache, LaunchConfigurations, AutoscalingGroups, LoadBalancer",
+  "Parameters": {
+    "01EnvironmentName": {
+      "Type": "String",
+      "Description": "Enter the environment name you want to create",
+      "AllowedValues": [
+        "dev",
+        "stg",
+        "prod"
+      ]
+    },
+    "02AvailabilityZoneA": {
+      "Description": "Select AVZoneA",
+      "Type": "AWS::EC2::AvailabilityZone::Name"
+    },
+    "03AvailabilityZoneB": {
+      "Description": "Select AVZoneB",
+      "Type": "AWS::EC2::AvailabilityZone::Name"
+    },
+    "04DBInstanceIdentifier": {
+      "Default": "myDBInstance",
+      "Type": "String",
+      "Description": "Give a name to your RDS Instance"
+    },
+    "05DBName": {
+      "Default": "MyDatabase",
+      "Description": "The database name",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*",
+      "ConstraintDescription": "must begin with a letter and contain only alphanumeric characters."
+    },
+    "06DBUsername": {
+      "Default": "admin",
+      "Description": "The database admin account username",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "16",
+      "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*",
+      "ConstraintDescription": "must begin with a letter and contain only alphanumeric characters."
+    },
+    "07DBPassword": {
+      "Default": "password",
+      "NoEcho": "true",
+      "Description": "The database admin account password",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "41"
+    },
+    "08DBClass": {
+      "Description": "Database instance class",
+      "Type": "String",
+      "AllowedValues": [
+        "db.m4.10xlarge",
+        "db.m4.4xlarge",
+        "db.m4.2xlarge",
+        "db.m4.xlarge",
+        "db.m4.large",
+        "db.m3.2xlarge",
+        "db.m3.large",
+        "db.m3.medium",
+        "db.r3.8xlarge",
+        "db.r3.4xlarge",
+        "db.r3.2xlarge",
+        "db.r3.xlarge",
+        "db.r3.large",
+        "db.t2.large",
+        "db.t2.medium",
+        "db.t2.small",
+        "db.t2.micro"
+      ],
+      "ConstraintDescription": "must select a valid database instance type."
+    },
+    "09DBAllocatedStorage": {
+      "Default": "5",
+      "Description": "The size of the database (Gb)",
+      "Type": "Number",
+      "MinValue": "5",
+      "MaxValue": "1024",
+      "ConstraintDescription": "must be between 5 and 1024Gb."
+    },
+    "10WwwInstanceAMI": {
+      "Type": "String",
+      "Description": "Enter the Image Id"
+    },
+    "11AdminInstanceAMI": {
+      "Type": "String",
+      "Description": "Enter the Image Id"
+    },
+    "12KeyName": {
+      "Description": "Amazon EC2 Key Pair",
+      "Type": "AWS::EC2::KeyPair::KeyName"
+    },
+    "13InstanceType": {
+      "Description": "Type of EC2 instance to launch.",
+      "Type": "String",
+      "AllowedValues": [
+        "c4.2xlarge",
+        "c4.xlarge",
+        "c4.large",
+        "t2.micro",
+        "t2.small",
+        "t2.medium",
+        "t2.large",
+        "t2.nano",
+        "m4.large",
+        "m4.xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.10xlarge",
+        "r4.large",
+        "r4.xlarge"
+      ]
+    },
+    "14CacheNodeType": {
+      "Description": "Elasticache Cluster Node Type",
+      "Type": "String",
+      "AllowedValues": [
+        "cache.t2.micro",
+        "cache.t2.small",
+        "cache.t2.medium",
+        "cache.m3.medium",
+        "cache.m3.large",
+        "cache.m4.large",
+        "cache.m4.xlarge"
+      ]
+    }
+  },
+  "Mappings": {
+    "stg": {
+      "VPC": {
+        "CIDR": "10.30.0.0/16"
+      },
+      "DBSubnetA": {
+        "CIDR": "10.30.1.0/24"
+      },
+      "DBSubnetB": {
+        "CIDR": "10.30.2.0/24"
+      },
+      "WwwSubnetA": {
+        "CIDR": "10.30.3.0/24"
+      },
+      "WwwSubnetB": {
+        "CIDR": "10.30.4.0/24"
+      },
+      "AdminSubnetA": {
+        "CIDR": "10.30.5.0/24"
+      },
+      "AdminSubnetB": {
+        "CIDR": "10.30.6.0/24"
+      },
+      "CacheSubnetA": {
+        "CIDR": "10.30.7.0/24"
+      },
+      "CacheSubnetB": {
+        "CIDR": "10.30.8.0/24"
+      },
+      "ElbSubnetA": {
+        "CIDR": "10.30.9.0/24"
+      },
+      "ElbSubnetB": {
+        "CIDR": "10.30.10.0/24"
+      },
+      "MgmtSubnetA": {
+        "CIDR": "10.30.11.0/24"
+      },
+      "MgmtSubnetB": {
+        "CIDR": "10.30.12.0/24"
+      }
+    },
+    "dev": {
+      "VPC": {
+        "CIDR": "10.20.0.0/16"
+      },
+      "DBSubnetA": {
+        "CIDR": "10.20.1.0/24"
+      },
+      "DBSubnetB": {
+        "CIDR": "10.20.2.0/24"
+      },
+      "WwwSubnetA": {
+        "CIDR": "10.20.3.0/24"
+      },
+      "WwwSubnetB": {
+        "CIDR": "10.20.4.0/24"
+      },
+      "AdminSubnetA": {
+        "CIDR": "10.20.5.0/24"
+      },
+      "AdminSubnetB": {
+        "CIDR": "10.20.6.0/24"
+      },
+      "CacheSubnetA": {
+        "CIDR": "10.20.7.0/24"
+      },
+      "CacheSubnetB": {
+        "CIDR": "10.20.8.0/24"
+      },
+      "ElbSubnetA": {
+        "CIDR": "10.20.9.0/24"
+      },
+      "ElbSubnetB": {
+        "CIDR": "10.20.10.0/24"
+      },
+      "MgmtSubnetA": {
+        "CIDR": "10.20.11.0/24"
+      },
+      "MgmtSubnetB": {
+        "CIDR": "10.20.12.0/24"
+      }
+    },
+    "prod": {
+      "VPC": {
+        "CIDR": "10.50.0.0/16"
+      },
+      "DBSubnetA": {
+        "CIDR": "10.50.1.0/24"
+      },
+      "DBSubnetB": {
+        "CIDR": "10.50.2.0/24"
+      },
+      "WwwSubnetA": {
+        "CIDR": "10.50.3.0/24"
+      },
+      "WwwSubnetB": {
+        "CIDR": "10.50.4.0/24"
+      },
+      "AdminSubnetA": {
+        "CIDR": "10.50.5.0/24"
+      },
+      "AdminSubnetB": {
+        "CIDR": "10.50.6.0/24"
+      },
+      "CacheSubnetA": {
+        "CIDR": "10.50.7.0/24"
+      },
+      "CacheSubnetB": {
+        "CIDR": "10.50.8.0/24"
+      },
+      "ElbSubnetA": {
+        "CIDR": "10.50.9.0/24"
+      },
+      "ElbSubnetB": {
+        "CIDR": "10.50.10.0/24"
+      },
+      "MgmtSubnetA": {
+        "CIDR": "10.50.11.0/24"
+      },
+      "MgmtSubnetB": {
+        "CIDR": "10.50.12.0/24"
+      }
+    }
+  },
+  "Resources": {
+    "VPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "VPC",
+            "CIDR"
+          ]
+        },
+        "EnableDnsSupport": "true",
+        "EnableDnsHostnames": "true",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "vpc01"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "VpcIpv6": {
+      "Type": "AWS::EC2::VPCCidrBlock",
+      "Properties": {
+        "AmazonProvidedIpv6CidrBlock": true,
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway"
+    },
+    "InternetGatewayAttachement": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "InternetGatewayId": {
+          "Ref": "InternetGateway"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "EIP": {
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "Domain": "vpc"
+      }
+    },
+    "NAT": {
+      "Type": "AWS::EC2::NatGateway",
+      "DependsOn": "InternetGatewayAttachement",
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": [
+            "EIP",
+            "AllocationId"
+          ]
+        },
+        "SubnetId": {
+          "Ref": "MgmtSubnetA"
+        }
+      }
+    },
+    "VPCPeeringConnection": {
+      "Type": "AWS::EC2::VPCPeeringConnection",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "PeerVpcId": "vpc-d9701dbf",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "mgmt-peering01"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "DBSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "DBSubnetA",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "02AvailabilityZoneA"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "db-priv-1a"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "DBSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "DBSubnetB",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "03AvailabilityZoneB"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "db-priv-1b"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "WwwSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "WwwSubnetA",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "02AvailabilityZoneA"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "www-priv-1a"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "WwwSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "WwwSubnetB",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "03AvailabilityZoneB"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "www-priv-1b"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "AdminSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "AdminSubnetA",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "02AvailabilityZoneA"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "admin-priv-1a"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "AdminSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "AdminSubnetB",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "03AvailabilityZoneB"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "admin-priv-1b"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "CacheSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "CacheSubnetA",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "02AvailabilityZoneA"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "cache-priv-1a"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "CacheSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "CacheSubnetB",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "03AvailabilityZoneB"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "cache-priv-1b"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ElbSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "MapPublicIpOnLaunch": true,
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "ElbSubnetA",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "02AvailabilityZoneA"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "elb-pub-1a"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ElbSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "MapPublicIpOnLaunch": true,
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "ElbSubnetB",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "03AvailabilityZoneB"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "elb-pub-1b"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "MgmtSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "MapPublicIpOnLaunch": true,
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "MgmtSubnetA",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "02AvailabilityZoneA"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "mgmt-pub-1a"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "MgmtSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "MapPublicIpOnLaunch": true,
+        "CidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "MgmtSubnetB",
+            "CIDR"
+          ]
+        },
+        "AvailabilityZone": {
+          "Ref": "03AvailabilityZoneB"
+        },
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "mgmt-pub-1b"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "PublicSubnetsRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "PrivateSubnetsRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        }
+      }
+    },
+    "InternetRoute": {
+      "Type": "AWS::EC2::Route",
+      "DependsOn": "InternetGateway",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicSubnetsRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+    "PrivateRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "NAT"
+        }
+      }
+    },
+    "PeeringRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "DestinationCidrBlock": "10.0.0.0/16",
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "VpcPeeringConnectionId": {
+          "Ref": "VPCPeeringConnection"
+        }
+      }
+    },
+    "MgmtPeeringRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "DestinationCidrBlock": {
+          "Fn::FindInMap": [
+            {
+              "Ref": "01EnvironmentName"
+            },
+            "VPC",
+            "CIDR"
+          ]
+        },
+        "RouteTableId": "rtb-61b11918",
+        "VpcPeeringConnectionId": {
+          "Ref": "VPCPeeringConnection"
+        }
+      }
+    },
+    "AssociateRouteTableWithDBPrivateSubnetA": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "DBSubnetA"
+        }
+      }
+    },
+    "AssociateRouteTableWithDBPrivateSubnetB": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "DBSubnetB"
+        }
+      }
+    },
+    "AssociateRouteTableWithWwwPrivateSubnetA": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "WwwSubnetA"
+        }
+      }
+    },
+    "AssociateRouteTableWithWwwPrivateSubnetB": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "WwwSubnetB"
+        }
+      }
+    },
+    "AssociateRouteTableWithAdminPrivateSubnetA": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "AdminSubnetA"
+        }
+      }
+    },
+    "AssociateRouteTableWithAdminPrivateSubnetB": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "AdminSubnetB"
+        }
+      }
+    },
+    "AssociateRouteTableWithCachePrivateSubnetA": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "CacheSubnetA"
+        }
+      }
+    },
+    "AssociateRouteTableWithCachePrivateSubnetB": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "CacheSubnetB"
+        }
+      }
+    },
+    "AssociateRouteTableWithElbPublicSubnetA": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "ElbSubnetA"
+        }
+      }
+    },
+    "AssociateRouteTableWithElbPublicSubnetB": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "ElbSubnetB"
+        }
+      }
+    },
+    "AssociateRouteTableWithMgmtPublicSubnetA": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "MgmtSubnetA"
+        }
+      }
+    },
+    "AssociateRouteTableWithMgmtPublicSubnetB": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicSubnetsRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "MgmtSubnetB"
+        }
+      }
+    },
+    "dbsg01": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "DependsOn": [
+        "wwwsg01",
+        "adminsg01"
+      ],
+      "Properties": {
+        "GroupDescription": "DB Security Group",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "db-sg01"
+                ]
+              ]
+            }
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "3306",
+            "ToPort": "3306",
+            "SourceSecurityGroupId": {
+              "Ref": "wwwsg01"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "3306",
+            "ToPort": "3306",
+            "SourceSecurityGroupId": {
+              "Ref": "adminsg01"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "3306",
+            "ToPort": "3306",
+            "SourceSecurityGroupId": "sg-572b6e2b"
+          }
+        ]
+      }
+    },
+    "wwwsg01": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "DependsOn": "elbsg01",
+      "Properties": {
+        "GroupDescription": "Www Security Group",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "www-sg01"
+                ]
+              ]
+            }
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "80",
+            "ToPort": "80",
+            "SourceSecurityGroupId": {
+              "Ref": "elbsg01"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "443",
+            "ToPort": "443",
+            "SourceSecurityGroupId": {
+              "Ref": "elbsg01"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "SourceSecurityGroupId": "sg-572b6e2b"
+          }
+        ]
+      }
+    },
+    "adminsg01": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "DependsOn": "elbsg01",
+      "Properties": {
+        "GroupDescription": "Admin Security Group",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "admin-sg01"
+                ]
+              ]
+            }
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "80",
+            "ToPort": "80",
+            "SourceSecurityGroupId": {
+              "Ref": "elbsg01"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "443",
+            "ToPort": "443",
+            "SourceSecurityGroupId": {
+              "Ref": "elbsg01"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "SourceSecurityGroupId": "sg-572b6e2b"
+          }
+        ]
+      }
+    },
+    "cachesg01": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "DependsOn": [
+        "wwwsg01",
+        "adminsg01"
+      ],
+      "Properties": {
+        "GroupDescription": "Cache Security Group",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "cache-sg01"
+                ]
+              ]
+            }
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "6379",
+            "ToPort": "6379",
+            "SourceSecurityGroupId": {
+              "Ref": "wwwsg01"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "6379",
+            "ToPort": "6379",
+            "SourceSecurityGroupId": {
+              "Ref": "adminsg01"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "6379",
+            "ToPort": "6379",
+            "SourceSecurityGroupId": "sg-572b6e2b"
+          }
+        ]
+      }
+    },
+    "elbsg01": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "ELB Security Group",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "elb-sg01"
+                ]
+              ]
+            }
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "80",
+            "ToPort": "80",
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "443",
+            "ToPort": "443",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "DBSubnetGroup": {
+      "Type": "AWS::RDS::DBSubnetGroup",
+      "DependsOn": [
+        "DBSubnetA",
+        "DBSubnetB"
+      ],
+      "Properties": {
+        "DBSubnetGroupDescription": "Subnets available for the RDS DB Instance",
+        "SubnetIds": [
+          {
+            "Ref": "DBSubnetA"
+          },
+          {
+            "Ref": "DBSubnetB"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "db-subnet-group01"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "DBInstance": {
+      "Type": "AWS::RDS::DBInstance",
+      "DependsOn": [
+        "dbsg01",
+        "DBSubnetGroup"
+      ],
+      "Properties": {
+        "DBName": {
+          "Ref": "05DBName"
+        },
+        "AllocatedStorage": {
+          "Ref": "09DBAllocatedStorage"
+        },
+        "DBInstanceClass": {
+          "Ref": "08DBClass"
+        },
+        "Engine": "MySQL",
+        "EngineVersion": "5.6",
+        "DBInstanceIdentifier": {
+          "Ref": "04DBInstanceIdentifier"
+        },
+        "MasterUsername": {
+          "Ref": "06DBUsername"
+        },
+        "MasterUserPassword": {
+          "Ref": "07DBPassword"
+        },
+        "DBSubnetGroupName": {
+          "Ref": "DBSubnetGroup"
+        },
+        "VPCSecurityGroups": [
+          {
+            "Ref": "dbsg01"
+          }
+        ]
+      }
+    },
+    "CacheSubnetGroup": {
+      "Type": "AWS::ElastiCache::SubnetGroup",
+      "DependsOn": [
+        "CacheSubnetA",
+        "CacheSubnetB"
+      ],
+      "Properties": {
+        "CacheSubnetGroupName": {
+          "Fn::Join": [
+            "-",
+            [
+              "puc",
+              {
+                "Ref": "01EnvironmentName"
+              },
+              "cache-subnet-group01"
+            ]
+          ]
+        },
+        "Description": "Cache Subnet Group",
+        "SubnetIds": [
+          {
+            "Ref": "CacheSubnetA"
+          },
+          {
+            "Ref": "CacheSubnetB"
+          }
+        ]
+      }
+    },
+    "AdminElasticacheCluster": {
+      "Type": "AWS::ElastiCache::CacheCluster",
+      "DependsOn": [
+        "cachesg01",
+        "CacheSubnetGroup"
+      ],
+      "Properties": {
+        "ClusterName": {
+          "Fn::Join": [
+            "-",
+            [
+              {
+                "Ref": "01EnvironmentName"
+              },
+              "admin",
+              "cache01"
+            ]
+          ]
+        },
+        "AutoMinorVersionUpgrade": "true",
+        "Engine": "redis",
+        "CacheNodeType": {
+          "Ref": "14CacheNodeType"
+        },
+        "NumCacheNodes": "1",
+        "CacheSubnetGroupName": {
+          "Ref": "CacheSubnetGroup"
+        },
+        "VpcSecurityGroupIds": [
+          {
+            "Fn::GetAtt": [
+              "cachesg01",
+              "GroupId"
+            ]
+          }
+        ]
+      }
+    },
+    "WwwElasticacheCluster": {
+      "Type": "AWS::ElastiCache::CacheCluster",
+      "DependsOn": [
+        "cachesg01",
+        "CacheSubnetGroup"
+      ],
+      "Properties": {
+        "ClusterName": {
+          "Fn::Join": [
+            "-",
+            [
+              {
+                "Ref": "01EnvironmentName"
+              },
+              "www",
+              "cache01"
+            ]
+          ]
+        },
+        "AutoMinorVersionUpgrade": "true",
+        "Engine": "redis",
+        "CacheNodeType": {
+          "Ref": "14CacheNodeType"
+        },
+        "NumCacheNodes": "1",
+        "CacheSubnetGroupName": {
+          "Ref": "CacheSubnetGroup"
+        },
+        "VpcSecurityGroupIds": [
+          {
+            "Fn::GetAtt": [
+              "cachesg01",
+              "GroupId"
+            ]
+          }
+        ]
+      }
+    },
+    "WwwElasticLoadBalancer": {
+      "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+      "DependsOn": [
+        "ElbSubnetA",
+        "ElbSubnetB",
+        "elbsg01"
+      ],
+      "Properties": {
+        "LoadBalancerName": {
+          "Fn::Join": [
+            "-",
+            [
+              "puc",
+              {
+                "Ref": "01EnvironmentName"
+              },
+              "www-elb01"
+            ]
+          ]
+        },
+        "Listeners": [
+          {
+            "LoadBalancerPort": "80",
+            "InstancePort": "80",
+            "Protocol": "HTTP"
+          }
+        ],
+        "HealthCheck": {
+          "Target": "HTTP:80/robots.txt",
+          "HealthyThreshold": "3",
+          "UnhealthyThreshold": "5",
+          "Interval": "10",
+          "Timeout": "3"
+        },
+        "SecurityGroups": [
+          {
+            "Fn::GetAtt": [
+              "elbsg01",
+              "GroupId"
+            ]
+          }
+        ],
+        "Subnets": [
+          {
+            "Ref": "ElbSubnetA"
+          },
+          {
+            "Ref": "ElbSubnetB"
+          }
+        ]
+      }
+    },
+    "AdminElasticLoadBalancer": {
+      "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+      "DependsOn": [
+        "ElbSubnetA",
+        "ElbSubnetB",
+        "elbsg01"
+      ],
+      "Properties": {
+        "LoadBalancerName": {
+          "Fn::Join": [
+            "-",
+            [
+              "puc",
+              {
+                "Ref": "01EnvironmentName"
+              },
+              "admin-elb01"
+            ]
+          ]
+        },
+        "Listeners": [
+          {
+            "LoadBalancerPort": "80",
+            "InstancePort": "80",
+            "Protocol": "HTTP"
+          }
+        ],
+        "HealthCheck": {
+          "Target": "HTTP:80/robots.txt",
+          "HealthyThreshold": "3",
+          "UnhealthyThreshold": "5",
+          "Interval": "10",
+          "Timeout": "3"
+        },
+        "SecurityGroups": [
+          {
+            "Fn::GetAtt": [
+              "elbsg01",
+              "GroupId"
+            ]
+          }
+        ],
+        "Subnets": [
+          {
+            "Ref": "ElbSubnetA"
+          },
+          {
+            "Ref": "ElbSubnetB"
+          }
+        ]
+      }
+    },
+    "wwwlc01": {
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
+      "DependsOn": [
+        "wwwsg01"
+      ],
+      "Properties": {
+        "KeyName": {
+          "Ref": "12KeyName"
+        },
+        "ImageId": {
+          "Ref": "10WwwInstanceAMI"
+        },
+        "SecurityGroups": [
+          {
+            "Ref": "wwwsg01"
+          }
+        ],
+        "IamInstanceProfile": "ec2-instance-role",
+        "InstanceType": {
+          "Ref": "13InstanceType"
+        },
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/sda1",
+            "Ebs": {
+              "VolumeSize": "30"
+            }
+          }
+        ]
+      }
+    },
+    "adminlc01": {
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
+      "DependsOn": [
+        "adminsg01"
+      ],
+      "Properties": {
+        "KeyName": {
+          "Ref": "12KeyName"
+        },
+        "ImageId": {
+          "Ref": "11AdminInstanceAMI"
+        },
+        "SecurityGroups": [
+          {
+            "Ref": "adminsg01"
+          }
+        ],
+        "IamInstanceProfile": "ec2-instance-role",
+        "InstanceType": {
+          "Ref": "13InstanceType"
+        },
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/sda1",
+            "Ebs": {
+              "VolumeSize": "30"
+            }
+          }
+        ]
+      }
+    },
+    "wwwasg01": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "DependsOn": [
+        "wwwlc01",
+        "WwwElasticLoadBalancer"
+      ],
+      "Properties": {
+        "VPCZoneIdentifier": [
+          {
+            "Ref": "WwwSubnetA"
+          },
+          {
+            "Ref": "WwwSubnetB"
+          }
+        ],
+        "LaunchConfigurationName": {
+          "Ref": "wwwlc01"
+        },
+        "MinSize": "1",
+        "MaxSize": "4",
+        "LoadBalancerNames": [
+          {
+            "Ref": "WwwElasticLoadBalancer"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "www-server01"
+                ]
+              ]
+            },
+            "PropagateAtLaunch": "true"
+          }
+        ]
+      }
+    },
+    "adminasg01": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "DependsOn": [
+        "adminlc01",
+        "AdminElasticLoadBalancer"
+      ],
+      "Properties": {
+        "VPCZoneIdentifier": [
+          {
+            "Ref": "AdminSubnetA"
+          },
+          {
+            "Ref": "AdminSubnetB"
+          }
+        ],
+        "LaunchConfigurationName": {
+          "Ref": "adminlc01"
+        },
+        "MinSize": "1",
+        "MaxSize": "4",
+        "LoadBalancerNames": [
+          {
+            "Ref": "AdminElasticLoadBalancer"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "-",
+                [
+                  "puc",
+                  {
+                    "Ref": "01EnvironmentName"
+                  },
+                  "admin-server01"
+                ]
+              ]
+            },
+            "PropagateAtLaunch": "true"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "VpcId": {
+      "Value": {
+        "Ref": "VPC"
+      },
+      "Description": "The id of the created vpc"
+    },
+    "DBEndpoint": {
+      "Value": {
+        "Fn::GetAtt": [
+          "DBInstance",
+          "Endpoint.Address"
+        ]
+      },
+      "Description": "RDS Endpoint"
+    },
+    "AdminCacheEndpoint": {
+      "Value": {
+        "Fn::GetAtt": [
+          "AdminElasticacheCluster",
+          "RedisEndpoint.Address"
+        ]
+      },
+      "Description": "Admin ElastiCache Endpoint"
+    },
+    "WwwCacheEndpoint": {
+      "Value": {
+        "Fn::GetAtt": [
+          "WwwElasticacheCluster",
+          "RedisEndpoint.Address"
+        ]
+      },
+      "Description": "WWW ElastiCache Endpoint"
+    },
+    "WwwELBEndpoint": {
+      "Value": {
+        "Fn::GetAtt": [
+          "WwwElasticLoadBalancer",
+          "DNSName"
+        ]
+      },
+      "Description": "Www ELB Endpoint"
+    },
+    "AdminELBEndpoint": {
+      "Value": {
+        "Fn::GetAtt": [
+          "AdminElasticLoadBalancer",
+          "DNSName"
+        ]
+      },
+      "Description": "Admin ELB Endpoint"
+    }
+  }
+}
